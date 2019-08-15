@@ -1,0 +1,31 @@
+version: 0.2
+phases:
+  install:
+    #If you use the Ubuntu standard image 2.0 or later, you must specify runtime-versions.
+    #If you specify runtime-versions and use an image other than Ubuntu standard image 2.0, the build fails.
+    runtime-versions:
+      golang: 1.12
+  pre_build:
+    commands:
+      - apt-get install -y git emacs25-nox
+      - wget https://go-mode-build-artifacts.s3.amazonaws.com/build.sh
+      - mkdir /artifacts
+      # - command
+      # - command
+  build:
+    commands:
+      - bash build.sh
+      # - command
+  #post_build:
+    #commands:
+      # - command
+      # - command
+artifacts:
+  files:
+    - /artifacts/**/*
+  name: build-$(date +%Y-%m-%d)
+  #discard-paths: yes
+  #base-directory: location
+#cache:
+  #paths:
+    # - paths
