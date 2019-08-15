@@ -15,7 +15,9 @@ cd $tmpdir
 
 gotar=go1.12.8.src.tar.gz
 wget https://dl.google.com/go/$gotar
-tar xf $gotar
+mkdir go_orig go
+tar xf $gotar -C go_orig --strip-components=1
+tar xf $gotar -C go --strip-components=1
 
 git clone https://github.com/psanford/emacs-batch-reindent
 
@@ -40,7 +42,6 @@ git clone $repo $srcdir
   FORMAT_DIR="../go/src/cmd"
 
   set +e
-
   start="$(date +%s)"
   time printf "$FORMAT_DIR\n$EXT\n" | emacs --batch -q -l $GO_MODE -l batch-reindent.el -f batch-reindent >/artifacts/batch-reindent.log 2>&1
   result=$?
@@ -52,9 +53,14 @@ git clone $repo $srcdir
 )
 
 (
-  cd go
-
-  git diff > /artifacts/batch-reindent.diff
+  set +e
+  diff -u -r go_orig go > /artifacts/batch-reindent.diff
+  result=$?
+  set -e
+  # 0 == no diff; 1 == diff; 2 == problem
+  if [ $result -ge 2 ]; then
+    exit $result
+  fi
 )
 
 (
