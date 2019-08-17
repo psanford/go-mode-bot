@@ -1,0 +1,156 @@
+{
+  "build-status": "SUCCEEDED",
+  "project-name": "go-mode-tests",
+  "build-id": "arn:aws:codebuild:us-west-2:364679954851:build/go-mode-tests:fe17b923-3443-4c77-bc00-4397c48b5012",
+  "additional-information": {
+    "cache": {
+      "type": "NO_CACHE"
+    },
+    "timeout-in-minutes": 20.0,
+    "build-complete": true,
+    "initiator": "psanford",
+    "build-start-time": "Aug 15, 2019 4:24:06 AM",
+    "source": {
+      "buildspec": "version: 0.2\nphases:\n  install:\n    #If you use the Ubuntu standard image 2.0 or later, you must specify runtime-versions.\n    #If you specify runtime-versions and use an image other than Ubuntu standard image 2.0, the build fails.\n    runtime-versions:\n      golang: 1.12\n  pre_build:\n    commands:\n      - apt-get install -y git emacs25-nox\n      - wget https://go-mode-build-artifacts.s3.amazonaws.com/build.sh\n      - mkdir /artifacts\n      # - command\n      # - command\n  build:\n    commands:\n      - bash build.sh\n      # - command\n  #post_build:\n    #commands:\n      # - command\n      # - command\nartifacts:\n  files:\n    - /artifacts/**/*\n  name: build-$(date +%Y-%m-%d)\n  #discard-paths: yes\n  #base-directory: location\n#cache:\n  #paths:\n    # - paths\n",
+      "type": "NO_SOURCE"
+    },
+    "artifact": {
+      "location": "arn:aws:s3:::go-mode-build-artifacts/artifacts/fe17b923-3443-4c77-bc00-4397c48b5012/go-mode-tests"
+    },
+    "environment": {
+      "image": "aws/codebuild/standard:2.0",
+      "privileged-mode": false,
+      "image-pull-credentials-type": "CODEBUILD",
+      "compute-type": "BUILD_GENERAL1_SMALL",
+      "type": "LINUX_CONTAINER",
+      "environment-variables": [
+        {
+          "name": "PR",
+          "type": "PLAINTEXT",
+          "value": "2"
+        },
+        {
+          "name": "REPO",
+          "type": "PLAINTEXT",
+          "value": "psanford/go-mode-hook-test"
+        },
+        {
+          "name": "TRIGGER_COMMENT",
+          "type": "PLAINTEXT",
+          "value": "522268732"
+        }
+      ]
+    },
+    "logs": {
+      "group-name": "/aws/codebuild/go-mode-tests",
+      "stream-name": "fe17b923-3443-4c77-bc00-4397c48b5012",
+      "deep-link": "https://console.aws.amazon.com/cloudwatch/home?region=us-west-2#logEvent:group=/aws/codebuild/go-mode-tests;stream=fe17b923-3443-4c77-bc00-4397c48b5012"
+    },
+    "phases": [
+      {
+        "phase-context": [],
+        "start-time": "Aug 15, 2019 4:24:06 AM",
+        "end-time": "Aug 15, 2019 4:24:06 AM",
+        "duration-in-seconds": 0.0,
+        "phase-type": "SUBMITTED",
+        "phase-status": "SUCCEEDED"
+      },
+      {
+        "phase-context": [],
+        "start-time": "Aug 15, 2019 4:24:06 AM",
+        "end-time": "Aug 15, 2019 4:24:07 AM",
+        "duration-in-seconds": 1.0,
+        "phase-type": "QUEUED",
+        "phase-status": "SUCCEEDED"
+      },
+      {
+        "phase-context": [
+          ": "
+        ],
+        "start-time": "Aug 15, 2019 4:24:07 AM",
+        "end-time": "Aug 15, 2019 4:24:21 AM",
+        "duration-in-seconds": 14.0,
+        "phase-type": "PROVISIONING",
+        "phase-status": "SUCCEEDED"
+      },
+      {
+        "phase-context": [
+          ": "
+        ],
+        "start-time": "Aug 15, 2019 4:24:21 AM",
+        "end-time": "Aug 15, 2019 4:24:22 AM",
+        "duration-in-seconds": 0.0,
+        "phase-type": "DOWNLOAD_SOURCE",
+        "phase-status": "SUCCEEDED"
+      },
+      {
+        "phase-context": [
+          ": "
+        ],
+        "start-time": "Aug 15, 2019 4:24:22 AM",
+        "end-time": "Aug 15, 2019 4:24:22 AM",
+        "duration-in-seconds": 0.0,
+        "phase-type": "INSTALL",
+        "phase-status": "SUCCEEDED"
+      },
+      {
+        "phase-context": [
+          ": "
+        ],
+        "start-time": "Aug 15, 2019 4:24:22 AM",
+        "end-time": "Aug 15, 2019 4:24:46 AM",
+        "duration-in-seconds": 23.0,
+        "phase-type": "PRE_BUILD",
+        "phase-status": "SUCCEEDED"
+      },
+      {
+        "phase-context": [
+          ": "
+        ],
+        "start-time": "Aug 15, 2019 4:24:46 AM",
+        "end-time": "Aug 15, 2019 4:24:48 AM",
+        "duration-in-seconds": 2.0,
+        "phase-type": "BUILD",
+        "phase-status": "SUCCEEDED"
+      },
+      {
+        "phase-context": [
+          ": "
+        ],
+        "start-time": "Aug 15, 2019 4:24:48 AM",
+        "end-time": "Aug 15, 2019 4:24:48 AM",
+        "duration-in-seconds": 0.0,
+        "phase-type": "POST_BUILD",
+        "phase-status": "SUCCEEDED"
+      },
+      {
+        "phase-context": [
+          "CLIENT_ERROR: no matching artifact paths found"
+        ],
+        "start-time": "Aug 15, 2019 4:24:48 AM",
+        "end-time": "Aug 15, 2019 4:24:48 AM",
+        "duration-in-seconds": 0.0,
+        "phase-type": "UPLOAD_ARTIFACTS",
+        "phase-status": "FAILED"
+      },
+      {
+        "phase-context": [
+          ": "
+        ],
+        "start-time": "Aug 15, 2019 4:24:48 AM",
+        "end-time": "Aug 15, 2019 4:24:50 AM",
+        "duration-in-seconds": 2.0,
+        "phase-type": "FINALIZING",
+        "phase-status": "SUCCEEDED"
+      },
+      {
+        "start-time": "Aug 15, 2019 4:24:50 AM",
+        "phase-type": "COMPLETED"
+      }
+    ],
+    "queued-timeout-in-minutes": 480.0
+  },
+  "current-phase": "COMPLETED",
+  "current-phase-context": "[: ]",
+  "version": "1"
+}
