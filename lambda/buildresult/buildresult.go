@@ -151,7 +151,7 @@ func Handler(e events.CloudWatchEvent) error {
 	if err != nil {
 		panic(err)
 	}
-	testDuration := time.Duration(time.Duration(td) * time.Second)
+	testDuration := time.Duration(time.Duration(td) * time.Millisecond)
 
 	reindentStatus := "ERROR"
 	i, err = s3Client.getObjInt("batch-reindent.exitcode")
@@ -166,7 +166,7 @@ func Handler(e events.CloudWatchEvent) error {
 	if err != nil {
 		panic(err)
 	}
-	reindentDuration := time.Duration(time.Duration(rd) * time.Second)
+	reindentDuration := time.Duration(time.Duration(rd) * time.Millisecond)
 
 	diffStat, err := s3Client.getObjStr("batch-reindent.diffstat")
 	if err != nil {
