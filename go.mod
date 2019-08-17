@@ -1,4 +1,4 @@
-module github.com/psanford/go-mode-tester
+module github.com/psanford/go-mode-bot
 
 go 1.12
 
