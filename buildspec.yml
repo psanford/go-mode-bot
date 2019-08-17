@@ -7,7 +7,7 @@ phases:
       golang: 1.12
   pre_build:
     commands:
-      - apt-get install -y git emacs25-nox
+      - apt-get install -y git emacs25-nox diffstat
       - wget https://go-mode-build-artifacts.s3.amazonaws.com/build.sh
       - mkdir /artifacts
       # - command

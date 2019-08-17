@@ -4,9 +4,10 @@ set -e
 set -x
 set -o pipefail
 
-# PR should be set in the environment
+# PR should be set in the environment as a plain number: 1338
+# REPO should be set in the environment as: owner/project
 
-repo=https://github.com/dominikh/go-mode.el
+fullrepo=https://github.com/${REPO-dominikh/go-mode.el}
 srcdir=go-mode.el
 
 tmpdir=$(mktemp -d)
@@ -21,7 +22,7 @@ tar xf $gotar -C go --strip-components=1
 
 git clone https://github.com/psanford/emacs-batch-reindent
 
-git clone $repo $srcdir
+git clone $fullrepo $srcdir
 
 (
   cd $srcdir
@@ -39,11 +40,13 @@ git clone $repo $srcdir
 
   GO_MODE="../go-mode.el/go-mode.el"
   EXT=".go"
-  FORMAT_DIR="../go/src/cmd"
+  FORMAT_DIR="../go/src"
 
   set +e
   start="$(date +%s)"
-  time printf "$FORMAT_DIR\n$EXT\n" | emacs --batch -q -l $GO_MODE -l batch-reindent.el -f batch-reindent >/artifacts/batch-reindent.log 2>&1
+  echo "dir: $FORMAT_DIR" >> /artifacts/batch-reindent.log
+  echo "ext: $EXT" >> /artifacts/batch-reindent.log
+  time printf "$FORMAT_DIR\n$EXT\n" | emacs --batch -q -l $GO_MODE -l batch-reindent.el -f batch-reindent >>/artifacts/batch-reindent.log 2>&1
   result=$?
   set -e
   end="$(date +%s)"
@@ -61,6 +64,8 @@ git clone $repo $srcdir
   if [ $result -ge 2 ]; then
     exit $result
   fi
+
+  diffstat /artifacts/batch-reindent.diff > /artifacts/batch-reindent.diffstat
 )
 
 (
