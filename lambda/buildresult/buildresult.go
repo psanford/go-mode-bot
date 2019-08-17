@@ -173,6 +173,11 @@ func Handler(e events.CloudWatchEvent) error {
 		panic(err)
 	}
 
+	sha, err := s3Client.getObjStr("git_sha")
+	if err != nil {
+		panic(err)
+	}
+
 	files := []string{"batch-reindent.diff", "batch-reindent.log", "emacs-tests.log"}
 	for _, f := range files {
 		if err = s3Client.addContentType(f, "text/plain"); err != nil {
@@ -185,7 +190,7 @@ func Handler(e events.CloudWatchEvent) error {
 	testOutputURL := s3URL("emacs-tests.log")
 
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "Build result for %s\n", buildUUID)
+	fmt.Fprintf(&sb, "Build result for %s (build_id=%s)\n", strings.TrimSpace(sha), buildUUID)
 	fmt.Fprintf(&sb, "ERT tests %s in %s\n", testStatus, testDuration)
 	fmt.Fprintf(&sb, "Test output: [%s](%s)\n\n", path.Base(testOutputURL), testOutputURL)
 	fmt.Fprintf(&sb, "Reindent: %s in %s\n", reindentStatus, reindentDuration)

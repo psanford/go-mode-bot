@@ -33,6 +33,7 @@ git clone $fullrepo $srcdir
   git checkout $branch
 
   git log master..HEAD > /artifacts/git_log
+  git rev-parse HEAD > /artifacts/git_sha
 )
 
 (
