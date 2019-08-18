@@ -23,8 +23,9 @@ import (
 )
 
 var (
-	repoOwner     = "psanford"
-	repoName      = "go-mode-hook-test"
+	repoOwner = "dominikh"
+	repoName  = "go-mode.el"
+
 	region        = "us-west-2"
 	cbProjectName = "go-mode-tests"
 
