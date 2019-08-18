@@ -44,14 +44,14 @@ git clone $fullrepo $srcdir
   FORMAT_DIR="../go/src"
 
   set +e
-  start="$(date +%s+N)"
+  start="$(date +%s%N)"
   echo "dir: $FORMAT_DIR" >> /artifacts/batch-reindent.log
   echo "ext: $EXT" >> /artifacts/batch-reindent.log
   time printf "$FORMAT_DIR\n$EXT\n" | emacs --batch -q -l $GO_MODE -l batch-reindent.el -f batch-reindent >>/artifacts/batch-reindent.log 2>&1
   result=$?
   set -e
-  end="$(date +%s+N)"
-  delta=$((end-start)/1000000)
+  end="$(date +%s%N)"
+  delta=$(($((end-start))/1000000))
   echo $delta > /artifacts/batch-reindent.runtime
   echo $result > /artifacts/batch-reindent.exitcode
 )
@@ -73,12 +73,12 @@ git clone $fullrepo $srcdir
   cd go-mode.el/test
 
   set +e
-  start="$(date +%s+N)"
+  start="$(date +%s%N)"
   emacs --batch -q -l ert -l ../go-mode.el -l go-indentation-test.el -f ert-run-tests-batch-and-exit >/artifacts/emacs-tests.log 2>&1
   result=$?
   set -e
-  end="$(date +%s+N)"
-  delta=$((end-start)/1000000)
+  end="$(date +%s%N)"
+  delta=$(($((end-start))/1000000))
   echo $delta >> /artifacts/emacs-tests.runtime
   echo $result > /artifacts/emacs-tests.exitcode
 )
