@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"strconv"
@@ -170,6 +172,8 @@ func Handler(e events.CloudWatchEvent) error {
 			if needBuild {
 				log.Printf("%s needs build for %d", issueStr, lastBuildRequest)
 
+				botID := randID()
+
 				startReq := &codebuild.StartBuildInput{
 					ProjectName: &cbProjectName,
 					EnvironmentVariablesOverride: []*codebuild.EnvironmentVariable{
@@ -180,6 +184,10 @@ func Handler(e events.CloudWatchEvent) error {
 						&codebuild.EnvironmentVariable{
 							Name:  aws.String("PR"),
 							Value: aws.String(strconv.Itoa(issueNumber)),
+						},
+						&codebuild.EnvironmentVariable{
+							Name:  aws.String("GO_MODE_BOT_ID"),
+							Value: aws.String(botID),
 						},
 						&codebuild.EnvironmentVariable{
 							Name:  aws.String("TRIGGER_COMMENT"),
@@ -197,9 +205,10 @@ func Handler(e events.CloudWatchEvent) error {
 				if out.Build != nil && out.Build.Id != nil {
 					cbID = *out.Build.Id
 				}
+				log.Printf("Triggered build commentID=%d cbID=%s gmbID=%s", lastBuildRequest, cbID, botID)
 
 				// // trigger build
-				body := fmt.Sprintf("Build Prending: %s comment=%d cbID=%s", issueStr, lastBuildRequest, cbID)
+				body := fmt.Sprintf("Build Prending: gmbID=%s", botID)
 				comment := github.IssueComment{
 					Body: &body,
 				}
@@ -237,4 +246,13 @@ func userName(o Owned) string {
 		return ""
 	}
 	return u.GetLogin()
+}
+
+func randID() string {
+	b := make([]byte, 16)
+	_, err := io.ReadFull(rand.Reader, b)
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf("%X\n", b)
 }

@@ -205,6 +205,7 @@ func Handler(e events.CloudWatchEvent) error {
 		repoOwner      string
 		repoName       string
 		triggerComment int
+		goModeBotID    string
 	)
 
 	for _, ev := range b.AdditionalInformation.Environment.EnvironmentVariables {
@@ -222,6 +223,8 @@ func Handler(e events.CloudWatchEvent) error {
 			}
 			repoOwner = parts[0]
 			repoName = parts[1]
+		case "GO_MODE_BOT_ID":
+			goModeBotID = ev.Value
 		case "TRIGGER_COMMENT":
 			i, err := strconv.Atoi(ev.Value)
 			if err != nil {
@@ -243,7 +246,7 @@ func Handler(e events.CloudWatchEvent) error {
 	tc := oauth2.NewClient(ctx, ts)
 	client := github.NewClient(tc)
 
-	idSearch := "cbID=" + cbID
+	idSearch := "gmbID=" + goModeBotID
 
 	var origCommentFound bool
 
