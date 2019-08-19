@@ -23,8 +23,16 @@ import (
 )
 
 var (
-	repoOwner = "dominikh"
-	repoName  = "go-mode.el"
+	repos = []repo{
+		{
+			owner: "dominikh",
+			name:  "go-mode.el",
+		},
+		{
+			owner: "psanford",
+			name:  "go-mode-hook-test",
+		},
+	}
 
 	region        = "us-west-2"
 	cbProjectName = "go-mode-tests"
@@ -32,11 +40,20 @@ var (
 	ssmGithubToken = "/prod/lambda/go-mode-bot-build-complete/github-token"
 
 	ghToken string
-
-	cb *codebuild.CodeBuild
+	cb      *codebuild.CodeBuild
 
 	offline = flag.Bool("offline", false, "Run in standalone mode")
 )
+
+const (
+	eyesReaction = "eyes"
+	botID        = "go-mode-bot"
+)
+
+type repo struct {
+	owner string
+	name  string
+}
 
 func init() {
 	cb = codebuild.New(session.New(
@@ -94,137 +111,170 @@ func Handler(e events.CloudWatchEvent) error {
 
 	client := github.NewClient(tc)
 
-	notifications, _, err := client.Activity.ListRepositoryNotifications(ctx, repoOwner, repoName, nil)
-	if err != nil {
-		return fmt.Errorf("List Notifications error: %s", err)
-	}
-	for _, n := range notifications {
-		nName := n.GetRepository().GetFullName()
-
-		if nName != repoOwner+"/"+repoName {
-			log.Printf("%s Doesn't match %s/%s, skipping", nName, repoOwner, repoName)
-		}
-
-		n.GetRepository().GetOwner()
-		s := n.GetSubject()
-		log.Printf("%s Notification : %s\n", nName, s.GetType())
-
-		urlParts := strings.Split(s.GetURL(), "/")
-		idStr := urlParts[len(urlParts)-1]
-		id, err := strconv.Atoi(idStr)
+	for _, repo := range repos {
+		notifications, _, err := client.Activity.ListRepositoryNotifications(ctx, repo.owner, repo.name, nil)
 		if err != nil {
-			return fmt.Errorf("ID str to int failed %s %s", idStr, err)
+			return fmt.Errorf("List Notifications error: %s", err)
 		}
+		for _, n := range notifications {
+			nName := n.GetRepository().GetFullName()
 
-		// github_state/#{issue_number}/#{comment_that_triggered_build}
+			if nName != repo.owner+"/"+repo.name {
+				log.Printf("%s Doesn't match %s/%s, skipping", nName, repo.owner, repo.name)
+			}
 
-		if s.GetType() == "PullRequest" {
-			issue, _, err := client.Issues.Get(ctx, repoOwner, repoName, id)
+			n.GetRepository().GetOwner()
+			s := n.GetSubject()
+			log.Printf("%s Notification : %s\n", nName, s.GetType())
+
+			urlParts := strings.Split(s.GetURL(), "/")
+			idStr := urlParts[len(urlParts)-1]
+			id, err := strconv.Atoi(idStr)
 			if err != nil {
-				return fmt.Errorf("Get issue %s/%s #%d err: %s", repoOwner, repoName, id, err)
+				return fmt.Errorf("ID str to int failed %s %s", idStr, err)
 			}
 
-			var issueNumber int
-			if issue.Number != nil {
-				issueNumber = *issue.Number
-			}
+			// github_state/#{issue_number}/#{comment_that_triggered_build}
 
-			if issueNumber < 1 {
-				log.Printf("Failed to get issue number")
-				continue
-			}
+			if s.GetType() == "PullRequest" {
+				issue, _, err := client.Issues.Get(ctx, repo.owner, repo.name, id)
+				if err != nil {
+					return fmt.Errorf("Get issue %s/%s #%d err: %s", repo.owner, repo.name, id, err)
+				}
 
-			issueStr := fmt.Sprintf("%s/%s/pull/%d", repoOwner, repoName, issueNumber)
+				var issueNumber int
+				if issue.Number != nil {
+					issueNumber = *issue.Number
+				}
 
-			if issue.State != nil && *issue.State == StateClosed {
-				log.Printf("%s closed, mark notification read", issueStr)
+				if issueNumber < 1 {
+					log.Printf("Failed to get issue number")
+					continue
+				}
+
+				issueStr := fmt.Sprintf("%s/%s/pull/%d", repo.owner, repo.name, issueNumber)
+
+				if issue.State != nil && *issue.State == StateClosed {
+					log.Printf("%s closed, mark notification read", issueStr)
+					_, err = client.Activity.MarkThreadRead(ctx, n.GetID())
+					if err != nil {
+						return fmt.Errorf("MarkThreadRead err: %s", err)
+					}
+					continue
+				}
+
+				var (
+					needBuild        bool
+					lastBuildRequest int64
+				)
+
+				if strings.Index(issue.GetBody(), "@go-mode-bot run") >= 0 && isAuthorized(userName(issue)) {
+
+					reactions, _, err := client.Reactions.ListIssueReactions(ctx, repo.owner, repo.name, id, nil)
+					if err != nil {
+						return fmt.Errorf("ListCommentReactions err: %s", err)
+					}
+					var hasBotReaction bool
+					for _, r := range reactions {
+						if userName(r) == botID && r.GetContent() == eyesReaction {
+							hasBotReaction = true
+							break
+						}
+					}
+
+					if !hasBotReaction {
+						needBuild = true
+						lastBuildRequest = issue.GetID()
+						_, _, err := client.Reactions.CreateIssueReaction(ctx, repo.owner, repo.name, id, eyesReaction)
+						if err != nil {
+							return fmt.Errorf("CreateIssueReaction err: %s", err)
+						}
+					}
+				}
+
+				comments, _, err := client.Issues.ListComments(ctx, repo.owner, repo.name, id, nil)
+				for _, comment := range comments {
+					login := userName(comment)
+
+					if login == botID {
+						continue
+					} else {
+						b := comment.GetBody()
+						if strings.Index(b, "@go-mode-bot run") >= 0 {
+							if isAuthorized(login) {
+
+								reactions, _, err := client.Reactions.ListIssueCommentReactions(ctx, repo.owner, repo.name, comment.GetID(), nil)
+
+								if err != nil {
+									return fmt.Errorf("ListCommentReactions err: %s", err)
+								}
+								var hasBotReaction bool
+								for _, r := range reactions {
+									if userName(r) == botID && r.GetContent() == eyesReaction {
+										hasBotReaction = true
+										break
+									}
+								}
+
+								if !hasBotReaction {
+									needBuild = true
+									lastBuildRequest = comment.GetID()
+									client.Reactions.CreateIssueCommentReaction(ctx, repo.owner, repo.name, comment.GetID(), eyesReaction)
+									if err != nil {
+										return fmt.Errorf("CreateIssueReaction err: %s", err)
+									}
+								}
+							}
+						}
+					}
+				}
+
+				if needBuild {
+					log.Printf("%s needs build for %d", issueStr, lastBuildRequest)
+
+					botID := randID()
+
+					startReq := &codebuild.StartBuildInput{
+						ProjectName: &cbProjectName,
+						EnvironmentVariablesOverride: []*codebuild.EnvironmentVariable{
+							&codebuild.EnvironmentVariable{
+								Name:  aws.String("REPO"),
+								Value: aws.String(repo.owner + "/" + repo.name),
+							},
+							&codebuild.EnvironmentVariable{
+								Name:  aws.String("PR"),
+								Value: aws.String(strconv.Itoa(issueNumber)),
+							},
+							&codebuild.EnvironmentVariable{
+								Name:  aws.String("GO_MODE_BOT_ID"),
+								Value: aws.String(botID),
+							},
+							&codebuild.EnvironmentVariable{
+								Name:  aws.String("TRIGGER_COMMENT"),
+								Value: aws.String(strconv.Itoa(int(lastBuildRequest))),
+							},
+						},
+					}
+
+					out, err := cb.StartBuild(startReq)
+					if err != nil {
+						return fmt.Errorf("CB StartBuild err: %s", err)
+					}
+
+					var cbID string
+					if out.Build != nil && out.Build.Id != nil {
+						cbID = *out.Build.Id
+					}
+					log.Printf("Triggered build commentID=%d cbID=%s gmbID=%s", lastBuildRequest, cbID, botID)
+				} else {
+					log.Printf("%s No build needed", issueStr)
+				}
+
+				log.Printf("%s Mark thread read", issueStr)
 				_, err = client.Activity.MarkThreadRead(ctx, n.GetID())
 				if err != nil {
 					return fmt.Errorf("MarkThreadRead err: %s", err)
 				}
-				continue
-			}
-
-			var needBuild bool
-			var lastBuildRequest int64
-
-			if strings.Index(issue.GetBody(), "@go-mode-bot run") >= 0 && isAuthorized(userName(issue)) {
-				needBuild = true
-				lastBuildRequest = issue.GetID()
-			}
-
-			comments, _, err := client.Issues.ListComments(ctx, repoOwner, repoName, id, nil)
-			for _, comment := range comments {
-				login := userName(comment)
-
-				if login == "go-mode-bot" {
-					needBuild = false
-				} else {
-					b := comment.GetBody()
-					if strings.Index(b, "@go-mode-bot run") >= 0 {
-						if isAuthorized(login) {
-							needBuild = true
-							lastBuildRequest = comment.GetID()
-						}
-					}
-				}
-			}
-
-			if needBuild {
-				log.Printf("%s needs build for %d", issueStr, lastBuildRequest)
-
-				botID := randID()
-
-				startReq := &codebuild.StartBuildInput{
-					ProjectName: &cbProjectName,
-					EnvironmentVariablesOverride: []*codebuild.EnvironmentVariable{
-						&codebuild.EnvironmentVariable{
-							Name:  aws.String("REPO"),
-							Value: aws.String(repoOwner + "/" + repoName),
-						},
-						&codebuild.EnvironmentVariable{
-							Name:  aws.String("PR"),
-							Value: aws.String(strconv.Itoa(issueNumber)),
-						},
-						&codebuild.EnvironmentVariable{
-							Name:  aws.String("GO_MODE_BOT_ID"),
-							Value: aws.String(botID),
-						},
-						&codebuild.EnvironmentVariable{
-							Name:  aws.String("TRIGGER_COMMENT"),
-							Value: aws.String(strconv.Itoa(int(lastBuildRequest))),
-						},
-					},
-				}
-
-				out, err := cb.StartBuild(startReq)
-				if err != nil {
-					return fmt.Errorf("CB StartBuild err: %s", err)
-				}
-
-				var cbID string
-				if out.Build != nil && out.Build.Id != nil {
-					cbID = *out.Build.Id
-				}
-				log.Printf("Triggered build commentID=%d cbID=%s gmbID=%s", lastBuildRequest, cbID, botID)
-
-				// // trigger build
-				body := fmt.Sprintf("Build Prending: gmbID=%s", botID)
-				comment := github.IssueComment{
-					Body: &body,
-				}
-				_, _, err = client.Issues.CreateComment(ctx, repoOwner, repoName, id, &comment)
-				if err != nil {
-					return fmt.Errorf("Update Comment err: %s", err)
-				}
-			} else {
-				log.Printf("%s No build needed", issueStr)
-			}
-
-			log.Printf("%s Mark thread read", issueStr)
-			_, err = client.Activity.MarkThreadRead(ctx, n.GetID())
-			if err != nil {
-				return fmt.Errorf("MarkThreadRead err: %s", err)
 			}
 		}
 	}
@@ -232,6 +282,13 @@ func Handler(e events.CloudWatchEvent) error {
 }
 
 const StateClosed = "closed"
+
+type pendingReaction struct {
+	repo       string
+	owner      string
+	id         int64
+	createFunc func(ctx context.Context, owner string, repo string, id int64, content string) (*github.Reaction, *github.Response, error)
+}
 
 func isAuthorized(u string) bool {
 	return u == "psanford" || u == "muirrn" || u == "muirmanders" || u == "dominikh"

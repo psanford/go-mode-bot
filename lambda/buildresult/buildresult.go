@@ -190,7 +190,7 @@ func Handler(e events.CloudWatchEvent) error {
 	testOutputURL := s3URL("emacs-tests.log")
 
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "Build result for %s (build_id=%s)\n", strings.TrimSpace(sha), buildUUID)
+	fmt.Fprintf(&sb, "Build result for %s\n", strings.TrimSpace(sha))
 	fmt.Fprintf(&sb, "ERT tests %s in %s\n", testStatus, testDuration)
 	fmt.Fprintf(&sb, "Test output: [%s](%s)\n\n", path.Base(testOutputURL), testOutputURL)
 	fmt.Fprintf(&sb, "Reindent: %s in %s\n", reindentStatus, reindentDuration)
@@ -237,6 +237,7 @@ func Handler(e events.CloudWatchEvent) error {
 	if pr < 1 || repoOwner == "" || repoName == "" {
 		return fmt.Errorf("Failed to find all env variables: %+v", b.AdditionalInformation.Environment.EnvironmentVariables)
 	}
+	fmt.Fprintf(&sb, "\n\ngmbID=%s buildUUID=%s", goModeBotID, buildUUID)
 
 	_ = triggerComment
 
@@ -248,7 +249,7 @@ func Handler(e events.CloudWatchEvent) error {
 
 	idSearch := "gmbID=" + goModeBotID
 
-	var origCommentFound bool
+	var existingResult bool
 
 	log.Printf("Search for original pr: %s/%s %d", repoOwner, repoName, pr)
 
@@ -263,22 +264,23 @@ func Handler(e events.CloudWatchEvent) error {
 		if login == "go-mode-bot" {
 			b := comment.GetBody()
 			if strings.Index(b, idSearch) >= 0 {
-				origCommentFound = true
-				b := sb.String()
-				comment.Body = &b
-
-				_, _, err := client.Issues.EditComment(ctx, repoOwner, repoName, comment.GetID(), comment)
-				if err != nil {
-					return fmt.Errorf("Error updating comment: %s", err)
-				}
-
-				break
+				existingResult = true
 			}
 		}
 	}
 
-	if origCommentFound != true {
-		return fmt.Errorf("Failed to find original gobot comment")
+	if existingResult {
+		log.Printf("Found existing comment with result")
+		return nil
+	}
+
+	body := sb.String()
+	comment := github.IssueComment{
+		Body: &body,
+	}
+	_, _, err = client.Issues.CreateComment(ctx, repoOwner, repoName, pr, &comment)
+	if err != nil {
+		return fmt.Errorf("Create result comment err: %s", err)
 	}
 
 	return nil
@@ -330,7 +332,6 @@ func (c *s3Client) getObjStr(file string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	body = bytes.TrimSpace(body)
 	return string(body), nil
 }
 
@@ -339,7 +340,7 @@ func (c *s3Client) getObjInt(file string) (int, error) {
 	if err != nil {
 		return -128, err
 	}
-	return strconv.Atoi(body)
+	return strconv.Atoi(strings.TrimSpace(body))
 }
 
 func (c *s3Client) addContentType(file, contentType string) error {
